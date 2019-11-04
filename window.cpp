@@ -50,7 +50,7 @@ void window::dragRelease(const HBB::vec & p){
     auto delta = p - dragStartPosi;
     draging = false;
     if(fabs(delta.X)+fabs(delta.Y) < 2){
-        clickToRemoveLine(lookAt + p/scale);
+        clickToEdit(lookAt + p/scale);
     }else{
         
     }
@@ -98,7 +98,7 @@ window::window():lookAt(0,0),scale(16){
         return;
     }
     TTF_Init();
-    font  = TTF_OpenFont("font.ttf",40);
+    font  = TTF_OpenFont("font.ttf",32);
     gWindow = SDL_CreateWindow(
         "mesh lang - Alpha", 
         SDL_WINDOWPOS_UNDEFINED, 
@@ -121,6 +121,9 @@ window::window():lookAt(0,0),scale(16){
     addingLine  = false;
 }
 window::~window(){
+    for(auto it:textures){
+        SDL_DestroyTexture(it.second.first);
+    }
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
     TTF_CloseFont(font);
@@ -141,7 +144,8 @@ void window::drawLineAbs(const HBB::vec & f , const HBB::vec & t){
     SDL_RenderDrawLine(gRenderer , x1,y1,x2,y2);
 }
 void window::drawNodeAbs(node * n){
-
+    int w,h;
+    SDL_Texture * tx;
     const HBB::vec & p = n->position;
     int input = n->input.size();
     int output= n->output.size();
@@ -149,7 +153,7 @@ void window::drawNodeAbs(node * n){
     auto rp = (p-lookAt) * scale;
     int height = std::max(input , output)*2 + 4;
     
-    SDL_Rect r;
+    SDL_Rect r,sr;
     
     r.x = rp.X-2;
     r.y = rp.Y-2;
@@ -174,6 +178,17 @@ void window::drawNodeAbs(node * n){
     for(int i=0;i<input;i++){
         r.y = rp.Y + (i * 2 + 4.75)*scale;
         SDL_RenderFillRect(gRenderer,&r);
+
+        if(scale>10){
+            char buf[64];
+            snprintf(buf,sizeof(buf),"%s/%s",n->type->input[i].type.c_str(),n->type->input[i].name.c_str());
+            tx = getTexture(buf , w , h);
+            sr.x = r.x+scale*0.55;
+            sr.y = r.y-scale*0.12;
+            sr.h = h*scale*0.015;
+            sr.w = w*scale*0.015;
+            SDL_RenderCopy(gRenderer,tx,NULL,&sr);
+        }
     }
     
     SDL_SetRenderDrawColor(gRenderer, 32, 64, 128, 255);
@@ -181,6 +196,18 @@ void window::drawNodeAbs(node * n){
     for(int i=0;i<output;i++){
         r.y = rp.Y + (i * 2 + 4.75)*scale;
         SDL_RenderFillRect(gRenderer,&r);
+
+        if(scale>14){
+            char buf[64];
+            snprintf(buf,sizeof(buf),"%s/%s",n->type->output[i].type.c_str(),n->type->output[i].name.c_str());
+            tx = getTexture(buf , w , h);
+            sr.x = r.x;
+            sr.y = r.y-scale*0.12;
+            sr.h = h*scale*0.015;
+            sr.w = w*scale*0.015;
+            sr.x-= sr.w;
+            SDL_RenderCopy(gRenderer,tx,NULL,&sr);
+        }
     }
     
     SDL_SetRenderDrawColor(gRenderer, 64, 255, 64 , 255);
@@ -198,25 +225,38 @@ void window::drawNodeAbs(node * n){
     r.y = rp.Y + 2.75*scale;
     SDL_RenderFillRect(gRenderer,&r);
 
+    if(scale>14){
+        tx = getTexture(n->type->name.c_str(),w,h);
+        sr.x = rp.X+scale;
+        sr.y = rp.Y+scale*1.5;
+        sr.h = h*scale*0.03;
+        sr.w = w*scale*0.03;
+
+        SDL_RenderCopy(gRenderer,tx,NULL,&sr);
+    }
+}
+SDL_Texture *window:: getTexture(const char * str , int & w , int & h){
     SDL_Texture * tx;
-    auto it = textures.find(n->type->name);
+    auto it = textures.find(str);
     if(it == textures.end()){
-        SDL_Color color = { 255, 255, 255 };
-        SDL_Surface *surf = TTF_RenderText_Blended(font, n->type->name.c_str() , color);
+        SDL_Color color;
+        color.r=128;
+        color.g=128;
+        color.b=128;
+        color.a=255;
+        SDL_Surface *surf = TTF_RenderText_Blended(font, str , color);
+        w=surf->w;
+        h=surf->h;
         tx = SDL_CreateTextureFromSurface(gRenderer, surf);
         SDL_FreeSurface(surf);
-        textures[n->type->name] = tx;
+        textures[str] = std::pair<SDL_Texture*,HBB::vec>(tx,HBB::vec(w,h));
     }else{
-        tx = it->second;
+        tx = it->second.first;
+        w  = it->second.second.X;
+        h  = it->second.second.Y;
     }
-
-    r.x = rp.X;
-    r.y = rp.Y;
-    r.w = 4*scale;
-    r.h = height*scale;
-    SDL_RenderCopy(gRenderer,tx,&r,NULL);
+    return tx;
 }
-
 void window::draw(){
     SDL_RenderClear(gRenderer);
     HBB::AABB box;
@@ -300,10 +340,24 @@ bool window::pollEvent(){
     }
     return true;
 }
+void window::editNode(node *n){
+    editor.setTable();
+    editor.setRows(n->initval.size());
+    int i=0;
+    for(auto it:n->initval){
+        editor.setRow(i,it.first,it.second);
+        ++i;
+    }
+    editor.exec();
+    if(editor.removeNode)
+        removeNode(n);
+    else{
+        editor.getVar(n->initval);
+    }
+}
 void window::getInsertingName(std::string & name){
-    funcTable fw;
-    fw.setTable();
-    fw.setRows(funcs.size());
+    fTable.setTable();
+    fTable.setRows(funcs.size());
     int i=0;
     for(auto it:funcs){
         std::string in,out;
@@ -311,37 +365,50 @@ void window::getInsertingName(std::string & name){
         for(auto iit:it.second->input){
             if(!first)
                 in+=",";
-            in+=iit.type;
+            in+=iit.type+"/"+iit.name;
             first=false;
         }
         first=true;
         for(auto oit:it.second->output){
             if(!first)
                 out+=",";
-            out+=oit.type;
+            out+=oit.type+"/"+oit.name;
             first=false;
         }
         char gSize[64];
         snprintf(gSize,sizeof(gSize),"%d",(int)it.second->size.Y);
-        fw.setRow(i,it.second->name.c_str(),in.c_str(),out.c_str(),gSize);
+        fTable.setRow(i,it.second->name.c_str(),in.c_str(),out.c_str(),gSize);
         ++i;
     }
-    fw.exec();
+    fTable.exec();
 
-    name = fw.functionName;
+    name = fTable.functionName;
 
-    if(!name.empty() && fw.createFunction){
+    if(!name.empty() && fTable.createFunction){
         std::vector<variable> input,output;
         input.clear();
         output.clear();
-        for(auto it:fw.input){
-            input.push_back(variable(it,it));
+        for(auto it:fTable.input){
+            QStringList var = QString(it.c_str()).split("/");
+            if(var.size()>1)
+                input.push_back(variable(var[1].toStdString(),var[0].toStdString()));
         }
-        for(auto it:fw.output){
-            output.push_back(variable(it,it));
+        for(auto it:fTable.output){
+            QStringList var = QString(it.c_str()).split("/");
+            if(var.size()>1)
+                output.push_back(variable(var[1].toStdString(),var[0].toStdString()));
         }
         addFunc(name,input,output);
     }
+}
+void window::showMenu(){
+    exec();
+}
+void window::importFile(const std::string & p){
+    import(p);
+}
+void window::saveFile(const std::string & p){
+    save(p);
 }
 
 }

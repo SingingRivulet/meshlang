@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
     //MainWindow w;
     //w.show();
     meshlang::window W;
-    W.import("1.mla");
     do{
         W.draw();
     }while(W.pollEvent());

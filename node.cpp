@@ -34,8 +34,24 @@ void functions::addFunc(const std::string & name,const std::vector<variable> & i
     if(funcs.find(name)!=funcs.end())
         return;
     auto p = new function;
-    p->input  = input;
-    p->output = output;
+    p->input.clear();
+    p->output.clear();
+
+    std::unordered_map<std::string,std::string> types;
+    for(auto it:input){
+        types[it.name] = it.type;
+    }
+    for(auto it:output){
+        types[it.name] = it.type;
+    }
+
+    for(auto it:input){
+        p->input.push_back(variable(it.name,types[it.name]));
+    }
+    for(auto it:output){
+        p->output.push_back(variable(it.name,types[it.name]));
+    }
+
     p->name   = name;
     p->size.X = 4;
     p->size.Y = std::max(input.size(),output.size())*2 + 4;
@@ -67,10 +83,12 @@ node * program::addNode(const std::string & name,const HBB::vec & tposition , in
     len=p->input.size();
     for(i=0;i<len;++i){
         p->input[i]=NULL;
+        p->initval[p->type->input[i].name] = "";
     }
     len=p->output.size();
     for(i=0;i<len;++i){
         p->output[i].clear();
+        p->initval[p->type->output[i].name] = "";
     }
     
     p->trueThen=NULL;
@@ -289,7 +307,7 @@ void program::clickToRemove(const HBB::vec & a){
     if(A)
         removeNode(A);
 }
-void program::clickToRemoveLine(const HBB::vec & a){
+void program::clickToEdit(const HBB::vec & a){
     node * A=NULL;
     elements.fetchByPoint(a,[](HBB::AABB * bx,void * arg){
         *((node**)arg) = (node*)bx->data;
@@ -333,11 +351,13 @@ void program::clickToRemoveLine(const HBB::vec & a){
                 }
             }else
             if(Amode==3){
-                removeNode(A);
+                editNode(A);
             }
         }catch(...){
             
         }
+    }else{
+        showMenu();
     }
 }
 void program::clickTwoPoint(const HBB::vec & a , const HBB::vec & b){
@@ -437,7 +457,9 @@ void program::import(const std::string & path){
                         for(auto it:inputs){
                             QString real = it.trimmed();
                             if(!real.isEmpty()){
-                                input.push_back(variable(real.toStdString(),real.toStdString()));
+                                QStringList var = real.split("/");
+                                if(var.size()>1)
+                                    input.push_back(variable(var[1].toStdString(),var[0].toStdString()));
                             }
                         }
                     }
@@ -446,12 +468,31 @@ void program::import(const std::string & path){
                         for(auto it:outputs){
                             QString real = it.trimmed();
                             if(!real.isEmpty()){
-                                output.push_back(variable(real.toStdString(),real.toStdString()));
+                                QStringList var = real.split("/");
+                                if(var.size()>1)
+                                    output.push_back(variable(var[1].toStdString(),var[0].toStdString()));
                             }
                         }
                     }
                 }
                 addFunc(name,input,output);
+            }else
+            if(active=="initval"){
+                int id;
+                std::string key;
+                std::string val;
+
+                iss>>id;
+                iss>>key;
+                iss>>val;
+
+                if(!key.empty() && !val.empty()){
+                    auto it = nodeMap.find(id);
+                    if(it!=nodeMap.end()){
+                        it->second->initval[key] = QByteArray::fromPercentEncoding(val.c_str()).toStdString().c_str();
+                    }
+                }
+
             }
         }
         fclose(fp);
@@ -460,36 +501,40 @@ void program::import(const std::string & path){
     }
 }
 void program::save(const std::string & path){
-    FILE * fp = fopen(path.c_str(),"r");
+    FILE * fp = fopen(path.c_str(),"w");
     if(fp){
         for(auto it:funcs){
             fprintf(fp,"function %s input:",it.first.c_str());
             bool first=true;
             for(auto it2:it.second->input){
                 if(first)
-                    fprintf(fp,"%s",it2.type.c_str());
+                    fprintf(fp,"%s/%s",it2.type.c_str(),it2.name.c_str());
                 else
-                    fprintf(fp,",%s",it2.type.c_str());
+                    fprintf(fp,",%s/%s",it2.type.c_str(),it2.name.c_str());
                 first = false;
             }
             first = true;
             fprintf(fp," output:");
             for(auto it2:it.second->output){
                 if(first)
-                    fprintf(fp,"%s",it2.type.c_str());
+                    fprintf(fp,"%s/%s",it2.type.c_str(),it2.name.c_str());
                 else
-                    fprintf(fp,",%s",it2.type.c_str());
+                    fprintf(fp,",%s/%s",it2.type.c_str(),it2.name.c_str());
                 first = false;
             }
             fprintf(fp," \n");
         }
-        fclose(fp);
         for(auto it:nodes){
             fprintf(fp,"node %s %d %f %f\n" , it->type->name.c_str() , it->id , it->position.X , it->position.Y);
+            for(auto it2:it->initval){
+                QByteArray barr = it2.second.c_str();
+                fprintf(fp,"initval %d %s %s\n" , it->id , it2.first.c_str() , barr.toPercentEncoding().toStdString().c_str());
+            }
         }
         for(auto it:lines){
             fprintf(fp,"line %d %d %d %d\n" , it->start->id , it->startId , it->end->id , it->endId);
         }
+        fclose(fp);
     }
 }
 }

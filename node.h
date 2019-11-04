@@ -3,6 +3,7 @@
 #include "hbb.h"
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -53,6 +54,7 @@ namespace meshlang{
         HBB::vec    position;   //在图中的位置
         std::vector<line*> input;
         std::vector<std::set<line*> > output;
+        std::unordered_map<std::string,std::string> initval;
         line      * trueThen;
         line      * falseThen;
         int         id;
@@ -76,15 +78,17 @@ namespace meshlang{
         HBB elementlines;
         node * addNode(const std::string & name,const HBB::vec & tposition,int id=0);
         void removeNode(node *);
+        virtual void editNode(node *)=0;
         line * link(node * a,int ida,node * b,int idb);
         line * link(int a,int ida,int b,int idb);
         void removeLine(line * ,bool erst=true,bool ered=true);
         program();
         ~program();
         void clickTwoPoint(const HBB::vec & a , const HBB::vec & b);
-        void clickToRemoveLine(const HBB::vec & a);
+        void clickToEdit(const HBB::vec & a);
         void clickToRemove(const HBB::vec & a);
         virtual void getInsertingName(std::string & name)=0;
+        virtual void showMenu()=0;
 
         void import(const std::string & path);
         void save(const std::string & path);

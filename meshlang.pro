@@ -29,14 +29,20 @@ SOURCES += \
     window.cpp \
     hbb.cpp \
     node.cpp \
-    functable.cpp
+    functable.cpp \
+    funceditor.cpp \
+    menu.cpp
 
 HEADERS += \
     hbb.h \
     mempool.h \
     node.h \
     window.h \
-    functable.h
+    functable.h \
+    funceditor.h \
+    menu.h
 
 FORMS += \
-    functable.ui
+    functable.ui \
+    funceditor.ui \
+    menu.ui
