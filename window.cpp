@@ -124,6 +124,11 @@ window::~window(){
     for(auto it:textures){
         SDL_DestroyTexture(it.second.first);
     }
+    for(auto it:notes){
+        SDL_DestroyTexture(it->texture);
+        it->box->autodrop();
+        delete it;
+    }
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
     TTF_CloseFont(font);
@@ -231,8 +236,16 @@ void window::drawNodeAbs(node * n){
         sr.y = rp.Y+scale*1.5;
         sr.h = h*scale*0.03;
         sr.w = w*scale*0.03;
-
         SDL_RenderCopy(gRenderer,tx,NULL,&sr);
+
+        if(!n->name.empty()){
+            tx = getTexture(n->name.c_str(),w,h);
+            sr.x = rp.X+scale;
+            sr.y = rp.Y+scale*2.8;
+            sr.h = h*scale*0.02;
+            sr.w = w*scale*0.02;
+            SDL_RenderCopy(gRenderer,tx,NULL,&sr);
+        }
     }
 }
 SDL_Texture *window:: getTexture(const char * str , int & w , int & h){
@@ -257,13 +270,53 @@ SDL_Texture *window:: getTexture(const char * str , int & w , int & h){
     }
     return tx;
 }
+void window::drawHighLightLine(line *l){
+    if(box.inBox(l->startPosi)){
+        auto rp = (l->startPosi-lookAt) * scale;
+        drawAim(rp);
+    }
+    if(box.inBox(l->endPosi)){
+        auto rp = (l->endPosi-lookAt) * scale;
+        drawAim(rp);
+    }
+}
+void window::drawAim(const HBB::vec & rp){
+    #define dig120 (3.14159265358979323846*2)/3
+    #define inr    0.5
+    #define our    0.9
+    double t=(std::clock()*1000.0/ CLOCKS_PER_SEC)/100.0;
+    SDL_RenderDrawLine(gRenderer
+                        , rp.X + scale*(inr*cos(t)), rp.Y + scale*(inr*sin(t))
+                        , rp.X + scale*(our*cos(t)), rp.Y + scale*(our*sin(t)));
+    SDL_RenderDrawLine(gRenderer
+                        , rp.X + scale*(inr*cos(t+dig120)), rp.Y + scale*(inr*sin(t+dig120))
+                        , rp.X + scale*(our*cos(t+dig120)), rp.Y + scale*(our*sin(t+dig120)));
+    SDL_RenderDrawLine(gRenderer
+                        , rp.X + scale*(inr*cos(t-dig120)), rp.Y + scale*(inr*sin(t-dig120))
+                        , rp.X + scale*(our*cos(t-dig120)), rp.Y + scale*(our*sin(t-dig120)));
+    #undef our
+    #undef inr
+    #undef dig120
+}
 void window::draw(){
     SDL_RenderClear(gRenderer);
-    HBB::AABB box;
     box.from = lookAt;
     box.to   = lookAt;
     box.to.X+= width/scale;
     box.to.Y+= height/scale;
+    SDL_SetRenderDrawColor(gRenderer, 0, 32, 32, 255);
+    elementnotes.collisionTest(&box , [](HBB::AABB * bx,void * arg){
+        auto self = (window*)arg;
+        auto n    = (note*)bx->data;
+        SDL_Rect sr;
+        auto rp = (n->posi - self->lookAt) * self->scale;
+        sr.x = rp.X;
+        sr.y = rp.Y;
+        sr.h = n->h*self->scale;
+        sr.w = n->w*self->scale;
+        SDL_RenderFillRect(self->gRenderer,&sr);
+        SDL_RenderCopy(self->gRenderer,n->texture,NULL,&sr);
+    },this);
     elementlines.collisionTest(&box , [](HBB::AABB * bx,void * arg){
         auto self = (window*)arg;
         auto l    = (line*)bx->data;
@@ -279,7 +332,54 @@ void window::draw(){
         auto n    = (node*)bx->data;
         self->drawNodeAbs(n);
     },this);
-    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(gRenderer, 255, 0, 0, 255);
+    elements.fetchByPoint(nowAbsPosi,[](HBB::AABB * bx,void * arg){
+        auto self = (window*)arg;
+        auto A    = (node*)bx->data;
+        int Amode,Aport;
+        A->getClickStatus(self->nowAbsPosi,Amode,Aport);
+        try{
+            if(Amode==1){
+                if(Aport==-2){
+                    if(!A->last.empty()){
+                        for(auto p:A->last){
+                            if(p)
+                                self->drawHighLightLine(p);
+                        }
+                    }
+                }else{
+                    auto p = A->input.at(Aport);
+                    for(auto pt:p){
+                        if(pt)
+                            self->drawHighLightLine(pt);
+                    }
+                }
+            }else
+            if(Amode==2){
+                if(Aport==-1){
+                    if(A->trueThen){
+                        self->drawHighLightLine(A->trueThen);
+                    }
+                }else
+                if(Aport==-2){
+                    if(A->falseThen){
+                        self->drawHighLightLine(A->falseThen);
+                    }
+                }else{
+                    auto p = A->output.at(Aport);
+                    if(!p.empty()){
+                        for(auto pt:p){
+                            if(pt)
+                                self->drawHighLightLine(pt);
+                        }
+                    }
+                }
+            }
+        }catch(...){
+
+        }
+    },this);
+    SDL_SetRenderDrawColor(gRenderer, 0, 16, 32, 255);
     SDL_RenderPresent(gRenderer);
 
     //auto rp = lookAt + mouse/scale;
@@ -311,6 +411,7 @@ bool window::pollEvent(){
         if (event.type == SDL_MOUSEMOTION){//移动鼠标
             mouse.X = event.motion.x;
             mouse.Y = event.motion.y;
+            nowAbsPosi = lookAt + mouse/scale;
             if(writing){
                 writeSet(HBB::vec(event.motion.x,event.motion.y));
             }
@@ -320,13 +421,20 @@ bool window::pollEvent(){
         }else
         if (event.type == SDL_MOUSEWHEEL){
             if(event.wheel.y<0){
-                scale-=1;
-                if(scale<1)
+
+                if(scale>1){
+
+                    scale-=0.5;
+
+                }else
                     scale=1;
             }else
             if(event.wheel.y>0){
-                scale+=1;
-                if(scale>128)
+                if(scale<128){
+
+                    scale+=0.5;
+
+                }else
                     scale=128;
             }
         }else
@@ -343,6 +451,7 @@ bool window::pollEvent(){
 void window::editNode(node *n){
     editor.setTable();
     editor.setRows(n->initval.size());
+    editor.setModuleName(n->name);
     int i=0;
     for(auto it:n->initval){
         editor.setRow(i,it.first,it.second);
@@ -353,6 +462,7 @@ void window::editNode(node *n){
         removeNode(n);
     else{
         editor.getVar(n->initval);
+        editor.getModuleName(n->name);
     }
 }
 void window::getInsertingName(std::string & name){
@@ -401,6 +511,78 @@ void window::getInsertingName(std::string & name){
         addFunc(name,input,output);
     }
 }
+void window::saveNotes(FILE * fp){
+    for(auto it:notes){
+        QByteArray barr = it->text.c_str();
+        fprintf(fp , "note %f %f %s\n",it->posi.X,it->posi.Y,barr.toPercentEncoding().toStdString().c_str());
+    }
+}
+void window::addNote(const std::string & text,const HBB::vec & posi){
+    auto p = new note;
+    SDL_Color color;
+    color.r=128;
+    color.g=128;
+    color.b=128;
+    color.a=255;
+    SDL_Surface *surf = TTF_RenderText_Blended(font, text.c_str() , color);
+    float w=surf->w*0.05;
+    float h=surf->h*0.05;
+    auto tx = SDL_CreateTextureFromSurface(gRenderer, surf);
+    SDL_FreeSurface(surf);
+    p->text    = text;
+    p->texture = tx;
+    p->posi    = posi;
+    p->w       = w;
+    p->h       = h;
+    auto end   = posi;
+    end.X     += w;
+    end.Y     += h;
+    p->box     = elementnotes.add(posi,end,p);
+
+    notes.insert(p);
+}
+bool window::editNote(const HBB::vec & a){
+    struct self_t{
+        window * self;
+        bool res;
+        std::list<note*> remove;
+    }self;
+    self.self  = this;
+    self.res   = false;
+    self.remove.clear();
+    elementnotes.fetchByPoint(a , [](HBB::AABB * bx,void * arg){
+        auto st   = (self_t*)arg;
+        auto self = st->self;
+        auto n    = (note*)bx->data;
+        bool isOK;
+        QString text = QInputDialog::getText(NULL, "注释",
+                "设置注释",
+                QLineEdit::Normal,
+                n->text.c_str(),
+                &isOK);
+        if(isOK){
+            st->remove.push_back(n);
+            if(!text.isEmpty()){
+                auto posi = n->posi;
+                self->addNote(text.toStdString(),posi);
+            }
+        }
+        st->res = true;
+    },&self);
+    for(auto it:self.remove){
+        removeNote(it);
+    }
+    return self.res;
+}
+void window::removeNote(note * n){
+    SDL_DestroyTexture(n->texture);
+    n->box->autodrop();
+    notes.erase(n);
+    delete n;
+}
+void window::addNoteInWindow(const std::string & text){
+    addNote(text,nowAbsPosi);
+}
 void window::showMenu(){
     exec();
 }
@@ -409,6 +591,9 @@ void window::importFile(const std::string & p){
 }
 void window::saveFile(const std::string & p){
     save(p);
+}
+void window::compileProgram(){
+    compile("a.c");
 }
 
 }

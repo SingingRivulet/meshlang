@@ -7,6 +7,10 @@ funcEditor::funcEditor(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle("编辑函数");
+
+    QRegExp rx = QRegExp("[A-Za-z0-9]{0,11}");
+    QRegExpValidator *validator = new QRegExpValidator(rx);
+    ui->moduleName->setValidator(validator);
 }
 
 funcEditor::~funcEditor()
@@ -44,4 +48,11 @@ void funcEditor::setRow(int r,const std::string & name,const std::string & val){
     k->setFlags(Qt::NoItemFlags);
     ui->table->setItem(r,0,k);
     ui->table->setItem(r,1,v);
+}
+
+void funcEditor::setModuleName(const std::string & val){
+    ui->moduleName->setText(val.c_str());
+}
+void funcEditor::getModuleName(std::string & val){
+    val = ui->moduleName->text().toStdString();
 }

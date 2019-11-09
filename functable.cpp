@@ -7,6 +7,10 @@ funcTable::funcTable(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle("添加函数");
+
+    ui->nName->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9]{0,20}")));
+    ui->nInput->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9/,]*")));
+    ui->nOutput->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9/,]*")));
 }
 void funcTable::setTable(){
     ui->table->setColumnCount(4);

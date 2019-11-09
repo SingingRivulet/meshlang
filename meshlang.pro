@@ -31,7 +31,8 @@ SOURCES += \
     node.cpp \
     functable.cpp \
     funceditor.cpp \
-    menu.cpp
+    menu.cpp \
+    compiler.cpp
 
 HEADERS += \
     hbb.h \
@@ -40,9 +41,13 @@ HEADERS += \
     window.h \
     functable.h \
     funceditor.h \
-    menu.h
+    menu.h \
+    compiler.h
 
 FORMS += \
     functable.ui \
     funceditor.ui \
     menu.ui
+
+DISTFILES += \
+    font.ttf

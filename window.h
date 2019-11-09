@@ -1,7 +1,7 @@
 #ifndef MESHLANG_WINDOW
 #define MESHLANG_WINDOW
+#include "compiler.h"
 #include "menu.h"
-#include "node.h"
 #include "functable.h"
 #include "funceditor.h"
 #include <unordered_map>
@@ -9,8 +9,10 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_image.h>
 #include <QInputDialog>
+#include <ctime>
+
 namespace meshlang{
-    class window:public program,menu{
+    class window:public compiler,menu{
         public:
             int width,height;
             HBB::vec lookAt;
@@ -31,6 +33,8 @@ namespace meshlang{
         private:
             HBB::vec dragStartPosi,dragRealPosi;
             HBB::vec writeStartRealPosi;
+            HBB::vec nowAbsPosi;
+            HBB::AABB box;
             
             bool addingLine;
 
@@ -45,6 +49,8 @@ namespace meshlang{
             
             void drawLineAbs(const HBB::vec & f , const HBB::vec & t);
             void drawNodeAbs(node * n);
+            void drawHighLightLine(line * l);
+            void drawAim(const HBB::vec & rp);
             
             std::unordered_map<std::string,std::pair<SDL_Texture*,HBB::vec> > textures;
 
@@ -53,6 +59,23 @@ namespace meshlang{
             virtual void showMenu();
             virtual void importFile(const std::string &);
             virtual void saveFile(const std::string &);
+            virtual bool editNote(const HBB::vec & a);
+            virtual void compileProgram();
+
+            //note
+            HBB elementnotes;
+            struct note{
+                HBB::AABB   * box;
+                std::string   text;
+                SDL_Texture * texture;
+                HBB::vec      posi;
+                float         w,h;
+            };
+            std::set<note*> notes;
+            virtual void saveNotes(FILE * fp);
+            virtual void addNote(const std::string & text,const HBB::vec & posi);
+            virtual void addNoteInWindow(const std::string & text);
+            virtual void removeNote(note * n);
 
             bool draging,writing;
 

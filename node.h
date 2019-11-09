@@ -35,6 +35,7 @@ namespace meshlang{
         std::string             name;
         std::vector<variable>   input,output;
         HBB::vec                size;//方框大小
+        std::unordered_map<std::string,std::string> types;
     };
     
     struct node;
@@ -52,16 +53,17 @@ namespace meshlang{
     struct node{
         function  * type;
         HBB::vec    position;   //在图中的位置
-        std::vector<line*> input;
-        std::vector<std::set<line*> > output;
+        std::vector<std::set<line*> > input , output;
         std::unordered_map<std::string,std::string> initval;
         line      * trueThen;
         line      * falseThen;
         int         id;
         std::set<line*> last;
         HBB::AABB * em;
+        std::string name;
         void getClickStatus(const HBB::vec & p , int & mode /* 1 input , 2 output , 3 center */ , int & port);
         void getPortPosition(HBB::vec & p , int  mode /* 1 input , 2 output , 3 center */ , int  port);
+        int  compileFlag;
     };
     
     struct functions{
@@ -87,8 +89,12 @@ namespace meshlang{
         void clickTwoPoint(const HBB::vec & a , const HBB::vec & b);
         void clickToEdit(const HBB::vec & a);
         void clickToRemove(const HBB::vec & a);
+
         virtual void getInsertingName(std::string & name)=0;
         virtual void showMenu()=0;
+        virtual void saveNotes(FILE * fp)=0;
+        virtual void addNote(const std::string & text,const HBB::vec & posi)=0;
+        virtual bool editNote(const HBB::vec & a)=0;
 
         void import(const std::string & path);
         void save(const std::string & path);

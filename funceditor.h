@@ -21,6 +21,8 @@ public:
     void setRows(int r);
     void setRow(int r,const std::string & name,const std::string & val);
     void getVar(std::unordered_map<std::string,std::string> & m);
+    void setModuleName(const std::string & val);
+    void getModuleName(std::string & val);
 
 private slots:
     void on_removeNode_clicked();

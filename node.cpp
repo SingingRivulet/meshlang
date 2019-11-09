@@ -22,7 +22,7 @@ void line::remove(bool erst,bool ered){
             end->last.erase(this);
         }else{
             try{
-                end->input.at(endId)=NULL;
+                end->input.at(endId).erase(this);
             }catch(...){
                 QMessageBox::information(NULL,"Error",QStringLiteral("找不到端口"),QMessageBox::Ok);
             }
@@ -37,19 +37,19 @@ void functions::addFunc(const std::string & name,const std::vector<variable> & i
     p->input.clear();
     p->output.clear();
 
-    std::unordered_map<std::string,std::string> types;
+    p->types.clear();
     for(auto it:input){
-        types[it.name] = it.type;
+        p->types[it.name] = it.type;
     }
     for(auto it:output){
-        types[it.name] = it.type;
+        p->types[it.name] = it.type;
     }
 
     for(auto it:input){
-        p->input.push_back(variable(it.name,types[it.name]));
+        p->input.push_back(variable(it.name,p->types[it.name]));
     }
     for(auto it:output){
-        p->output.push_back(variable(it.name,types[it.name]));
+        p->output.push_back(variable(it.name,p->types[it.name]));
     }
 
     p->name   = name;
@@ -82,7 +82,7 @@ node * program::addNode(const std::string & name,const HBB::vec & tposition , in
     int len,i;
     len=p->input.size();
     for(i=0;i<len;++i){
-        p->input[i]=NULL;
+        p->input[i].clear();
         p->initval[p->type->input[i].name] = "";
     }
     len=p->output.size();
@@ -94,6 +94,8 @@ node * program::addNode(const std::string & name,const HBB::vec & tposition , in
     p->trueThen=NULL;
     p->falseThen=NULL;
     p->last.clear();
+
+    p->name.clear();
     
     HBB::vec from,to;
     //p->position = tposition - (p->type->size/2);
@@ -117,9 +119,11 @@ node * program::addNode(const std::string & name,const HBB::vec & tposition , in
     return p;
 }
 void program::removeNode(node * n){
-    for(auto it:n->input){
-        if(it){
-            removeLine(it,true,false);
+    for(auto itn:n->input){
+        for(auto it:itn){
+            if(it){
+                removeLine(it,true,false);
+            }
         }
     }
     for(auto itn:n->output){
@@ -173,8 +177,10 @@ line * program::link(node * a,int ida,node * b,int idb){
                     return NULL;
             }
 
-            if(b->input.at(idb)!=NULL)
-                return NULL;
+            for(auto it:b->input.at(idb)){
+                if(it->start == a && it->startId == ida)
+                    return NULL;
+            }
         
             if(a->type->output.at(ida).type!=b->type->input.at(idb).type)//类型不符
                 return NULL;
@@ -219,7 +225,7 @@ line * program::link(node * a,int ida,node * b,int idb){
         }else{
             try{
                 a->output.at(p->startId).insert(p);
-                b->input.at(p->endId)         = p;
+                b->input.at(p->endId)   .insert(p);
             }catch(...){
                 
             }
@@ -325,9 +331,10 @@ void program::clickToEdit(const HBB::vec & a){
                         }
                     }
                 }else{
-                    auto p = A->input.at(Aport);
-                    if(p)
-                        removeLine(p);
+                    for(auto p:A->input.at(Aport)){
+                        if(p)
+                            removeLine(p);
+                    }
                 }
             }else
             if(Amode==2){
@@ -357,7 +364,8 @@ void program::clickToEdit(const HBB::vec & a){
             
         }
     }else{
-        showMenu();
+        if(!editNote(a))
+            showMenu();
     }
 }
 void program::clickTwoPoint(const HBB::vec & a , const HBB::vec & b){
@@ -493,6 +501,26 @@ void program::import(const std::string & path){
                     }
                 }
 
+            }else
+            if(active=="setName"){
+                int id;
+                std::string n;
+                iss>>id;
+                iss>>n;
+                if(!n.empty()){
+                    auto it = nodeMap.find(id);
+                    if(it!=nodeMap.end()){
+                        it->second->name = n;
+                    }
+                }
+            }else
+            if(active=="note"){
+                float x,y;
+                std::string val;
+                iss>>x;
+                iss>>y;
+                iss>>val;
+                addNote(QByteArray::fromPercentEncoding(val.c_str()).toStdString().c_str() , HBB::vec(x,y));
             }
         }
         fclose(fp);
@@ -526,14 +554,19 @@ void program::save(const std::string & path){
         }
         for(auto it:nodes){
             fprintf(fp,"node %s %d %f %f\n" , it->type->name.c_str() , it->id , it->position.X , it->position.Y);
+            if(!it->name.empty())
+                fprintf(fp,"setName %d %s\n" , it->id , it->name.c_str());
             for(auto it2:it->initval){
-                QByteArray barr = it2.second.c_str();
-                fprintf(fp,"initval %d %s %s\n" , it->id , it2.first.c_str() , barr.toPercentEncoding().toStdString().c_str());
+                if(!it2.second.empty()){
+                    QByteArray barr = it2.second.c_str();
+                    fprintf(fp,"initval %d %s %s\n" , it->id , it2.first.c_str() , barr.toPercentEncoding().toStdString().c_str());
+                }
             }
         }
         for(auto it:lines){
             fprintf(fp,"line %d %d %d %d\n" , it->start->id , it->startId , it->end->id , it->endId);
         }
+        saveNotes(fp);
         fclose(fp);
     }
 }
