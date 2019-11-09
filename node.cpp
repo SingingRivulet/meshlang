@@ -30,9 +30,28 @@ void line::remove(bool erst,bool ered){
     }
     delete this;
 }
-void functions::addFunc(const std::string & name,const std::vector<variable> & input,const std::vector<variable> & output){
+void program::addModule(const std::string & name,const std::vector<variable> & input,const std::vector<variable> & output,const HBB::vec & posi){
+    auto p = addFunc(name,input,output);
+    if(p){
+        std::vector<variable> var;
+        for(auto it:p->types){
+            var.push_back(variable(it.first,it.second));
+        }
+        var.push_back(variable("result","int"));
+
+        auto pname = name+"_self";
+        addFunc(pname,var,var);
+
+        auto npt = addNode(pname,posi);
+        npt->name = name;
+
+        npt->initval["result"] = "0";
+
+    }
+}
+function * functions::addFunc(const std::string & name,const std::vector<variable> & input,const std::vector<variable> & output){
     if(funcs.find(name)!=funcs.end())
-        return;
+        return NULL;
     auto p = new function;
     p->input.clear();
     p->output.clear();
@@ -55,7 +74,18 @@ void functions::addFunc(const std::string & name,const std::vector<variable> & i
     p->name   = name;
     p->size.X = 4;
     p->size.Y = std::max(input.size(),output.size())*2 + 4;
+
+    p->isPrivate = false;
+    if(p->name.size()>5){
+        int len = p->name.size();
+        auto ns = p->name.c_str();
+        if(ns[len-1]=='f' && ns[len-2]=='l' && ns[len-3]=='e' && ns[len-4]=='s' && ns[len-5]=='_')
+            p->isPrivate = true;
+    }
+
     funcs[name]=p;
+
+    return p;
 }
 functions::~functions(){
     for(auto it:funcs){
@@ -195,6 +225,12 @@ line * program::link(node * a,int ida,node * b,int idb){
                 if(it->start==a && it->startId==ida)
                     return NULL;
             }
+
+            if(b->type->isPrivate)
+                return NULL;
+
+            if(ida==-2 && a->type->isPrivate)
+                return NULL;
 
             isProcess = true;
         }

@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QInputDialog>
+#include "modulegen.h"
 
 namespace Ui {
 class menu;
@@ -22,6 +23,9 @@ public:
     virtual void saveFile(const std::string &)=0;
     virtual void addNoteInWindow(const std::string & text)=0;
     virtual void compileProgram()=0;
+    virtual void createModuleFunc()=0;
+
+    moduleGen moduleWindow;
 
 private slots:
     void on_importButton_clicked();
@@ -30,6 +34,8 @@ private slots:
     void on_noteButton_clicked();
 
     void on_compileButton_clicked();
+
+    void on_createModule_clicked();
 
 private:
     Ui::menu *ui;

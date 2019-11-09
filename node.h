@@ -36,6 +36,7 @@ namespace meshlang{
         std::vector<variable>   input,output;
         HBB::vec                size;//方框大小
         std::unordered_map<std::string,std::string> types;
+        bool                    isPrivate;
     };
     
     struct node;
@@ -68,7 +69,7 @@ namespace meshlang{
     
     struct functions{
         std::map<std::string,function * > funcs;
-        void addFunc(const std::string & name,const std::vector<variable> & input,const std::vector<variable> & output);
+        function * addFunc(const std::string & name,const std::vector<variable> & input,const std::vector<variable> & output);
         ~functions();
     };
     
@@ -79,6 +80,7 @@ namespace meshlang{
         HBB elements;
         HBB elementlines;
         node * addNode(const std::string & name,const HBB::vec & tposition,int id=0);
+        void addModule(const std::string & name,const std::vector<variable> & input,const std::vector<variable> & output,const HBB::vec & posi);
         void removeNode(node *);
         virtual void editNode(node *)=0;
         line * link(node * a,int ida,node * b,int idb);

@@ -14,7 +14,7 @@ void compiler::compile(const std::string & path){
 void compiler::compile_start(){
     funcMap.clear();
     for(auto it:nodes){
-        if(!it->name.empty()){
+        if(!it->name.empty() && it->type->isPrivate){
             funcMap[it->name] = it;
         }
     }
@@ -22,6 +22,7 @@ void compiler::compile_start(){
         compile_flag_init();
         compile_resetNode();
         compile_function_begin(it.second);
+        it.second->compileFlag = 1;
         if(it.second->trueThen)
             compile_function(it.second->trueThen->end);
         compile_function_end(it.second);
@@ -40,6 +41,7 @@ void compiler::compile_function(node * nt){
             compile_add_goto(n);
             return;
         }
+        n->compileFlag=1;
 
         if(n->last.size()>1){//多于1个父节点，说明存在跳转，插入标号
             compile_mark(n);
@@ -61,15 +63,20 @@ void compiler::compile_function(node * nt){
         compile_addExec(n);//执行节点
 
         if(n->trueThen && n->falseThen){//是否存在继续节点
-            compile_add_if(n,n->trueThen->end,n->falseThen->end);
 
-            compile_mark(n->trueThen->end);
-            compile_function(n->trueThen->end);
-            compile_add_return();
+            if(n->trueThen->end == n->falseThen->end){
+                n = n->trueThen->end;
+                continue;
+            }else{
+                compile_add_if(n,n->trueThen->end,n->falseThen->end);
+                compile_mark(n->trueThen->end);
+                compile_function(n->trueThen->end);
+                compile_add_return();
 
-            compile_mark(n->falseThen->end);
-            compile_function(n->falseThen->end);
-            compile_add_return();
+                compile_mark(n->falseThen->end);
+                compile_function(n->falseThen->end);
+                compile_add_return();
+            }
 
             return;
         }else
@@ -105,9 +112,10 @@ void compiler::compile_function_begin(node * n){
         str += std::string("  ")+it.second+" "+it.first+";\n";
     }
     str+="};\n";
-    str+=std::string("void meshlang_module_init_")+n->name+"(struct meshlang_module_"+n->name+" * m){\n"
-            "  int result;\n";
+    str+=std::string("void meshlang_module_init_")+n->name+"(struct meshlang_module_"+n->name+" * m){\n";
     for(auto it:n->initval){
+        if(it.second.empty())
+            continue;
         if(n->type->types[it.first]=="string"){
             str+=std::string("  m->")+it.first+" = \""+it.second+"\";\n";
         }else{
@@ -166,7 +174,10 @@ void compiler::compile_declareNode(node * n){
 
 void compiler::compile_add_if(node * n , node * t , node * f){
     char buf[1024];
-    snprintf(buf,sizeof(buf),"    if(tmp_%d_o.result)\n      goto nodeMk%d;\n    else\n      goto nodeMk%d;\n" , n->id , t->id , f->id);
+    if(t==f)
+        snprintf(buf,sizeof(buf),"  goto nodeMk%d;\n" , t->id);
+    else
+        snprintf(buf,sizeof(buf),"    if(tmp_%d_o.result)\n      goto nodeMk%d;\n    else\n      goto nodeMk%d;\n" , n->id , t->id , f->id);
     dumpCode(buf);
 }
 void compiler::compile_add_return(){

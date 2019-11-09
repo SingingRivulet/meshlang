@@ -61,6 +61,7 @@ namespace meshlang{
             virtual void saveFile(const std::string &);
             virtual bool editNote(const HBB::vec & a);
             virtual void compileProgram();
+            virtual void createModuleFunc();
 
             //note
             HBB elementnotes;

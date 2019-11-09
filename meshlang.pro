@@ -32,7 +32,8 @@ SOURCES += \
     functable.cpp \
     funceditor.cpp \
     menu.cpp \
-    compiler.cpp
+    compiler.cpp \
+    modulegen.cpp
 
 HEADERS += \
     hbb.h \
@@ -42,12 +43,14 @@ HEADERS += \
     functable.h \
     funceditor.h \
     menu.h \
-    compiler.h
+    compiler.h \
+    modulegen.h
 
 FORMS += \
     functable.ui \
     funceditor.ui \
-    menu.ui
+    menu.ui \
+    modulegen.ui
 
 DISTFILES += \
     font.ttf

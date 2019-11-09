@@ -171,8 +171,11 @@ void window::drawNodeAbs(node * n){
     r.y = rp.Y;
     r.w = 4*scale;
     r.h = height*scale;
-    
-    SDL_SetRenderDrawColor(gRenderer, 32, 32, 64, 255);
+
+    if(n->type->isPrivate)
+        SDL_SetRenderDrawColor(gRenderer, 32, 72, 32, 255);
+    else
+        SDL_SetRenderDrawColor(gRenderer, 32, 32, 64, 255);
     SDL_RenderFillRect(gRenderer,&r);
     
     r.w = 0.5 * scale;
@@ -215,15 +218,18 @@ void window::drawNodeAbs(node * n){
         }
     }
     
-    SDL_SetRenderDrawColor(gRenderer, 64, 255, 64 , 255);
     r.x = rp.X;
     r.y = rp.Y + 0.75*scale;
-    SDL_RenderFillRect(gRenderer,&r);
+    if(!n->type->isPrivate){
+        SDL_SetRenderDrawColor(gRenderer, 64, 255, 64 , 255);
+        SDL_RenderFillRect(gRenderer,&r);
+    }
     
-    SDL_SetRenderDrawColor(gRenderer, 255, 64, 64,  255);
     r.x = rp.X + 3.5*scale;
-    //r.y = rp.Y + 0.75*scale;
-    SDL_RenderFillRect(gRenderer,&r);
+    if(!n->type->isPrivate){
+        SDL_SetRenderDrawColor(gRenderer, 255, 64, 64,  255);
+        SDL_RenderFillRect(gRenderer,&r);
+    }
     
     SDL_SetRenderDrawColor(gRenderer, 64, 255, 128, 255);
     //r.x = rp.X + 3.5*scale;
@@ -517,6 +523,22 @@ void window::saveNotes(FILE * fp){
         fprintf(fp , "note %f %f %s\n",it->posi.X,it->posi.Y,barr.toPercentEncoding().toStdString().c_str());
     }
 }
+void window::createModuleFunc(){
+    std::vector<variable> input,output;
+    input.clear();
+    output.clear();
+    for(auto it:moduleWindow.input){
+        QStringList var = QString(it.c_str()).split("/");
+        if(var.size()>1)
+            input.push_back(variable(var[1].toStdString(),var[0].toStdString()));
+    }
+    for(auto it:moduleWindow.output){
+        QStringList var = QString(it.c_str()).split("/");
+        if(var.size()>1)
+            output.push_back(variable(var[1].toStdString(),var[0].toStdString()));
+    }
+    addModule(moduleWindow.moduleName , input , output , nowAbsPosi);
+}
 void window::addNote(const std::string & text,const HBB::vec & posi){
     auto p = new note;
     SDL_Color color;
@@ -593,7 +615,9 @@ void window::saveFile(const std::string & p){
     save(p);
 }
 void window::compileProgram(){
-    compile("a.c");
+    QString file_name=QFileDialog::getSaveFileName(this,"编译输出",".","*.c");
+    if(!file_name.isEmpty())
+        compile(file_name.toStdString());
 }
 
 }

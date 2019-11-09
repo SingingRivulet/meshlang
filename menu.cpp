@@ -45,3 +45,11 @@ void menu::on_compileButton_clicked(){
     compileProgram();
     accept();
 }
+
+void menu::on_createModule_clicked(){
+    moduleWindow.create = false;
+    moduleWindow.exec();
+    if(moduleWindow.create)
+        createModuleFunc();
+    accept();
+}
