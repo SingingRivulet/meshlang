@@ -69,13 +69,18 @@ void compiler::compile_function(node * nt){
                 continue;
             }else{
                 compile_add_if(n,n->trueThen->end,n->falseThen->end);
-                compile_mark(n->trueThen->end);
-                compile_function(n->trueThen->end);
-                compile_add_return();
 
-                compile_mark(n->falseThen->end);
-                compile_function(n->falseThen->end);
-                compile_add_return();
+                if(n->trueThen->end->compileFlag!=1){
+                    compile_mark(n->trueThen->end);
+                    compile_function(n->trueThen->end);
+                    compile_add_return();
+                }
+
+                if(n->falseThen->end->compileFlag!=1){
+                    compile_mark(n->falseThen->end);
+                    compile_function(n->falseThen->end);
+                    compile_add_return();
+                }
             }
 
             return;
@@ -94,6 +99,7 @@ void compiler::compile_function(node * nt){
 
 void compiler::compile_resetNode(){
     markMap.clear();
+    marked.clear();
 }
 void compiler::compile_addNode(node * n){
     if(markMap.find(n->id)==markMap.end()){
@@ -140,6 +146,9 @@ void compiler::compile_add_goto(node * n){
     dumpCode(buf);
 }
 void compiler::compile_mark(node * n){
+    if(marked.find(n->id)!=marked.end())
+        return;
+    marked.insert(n->id);
     char buf[128];
     snprintf(buf,128,"  nodeMk%d:\n",n->id);
     dumpCode(buf);

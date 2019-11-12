@@ -13,7 +13,7 @@ class compiler:public program{
         void compile_start();
         void compile_flag_init();
         std::map<std::string,node*> funcMap;
-        std::set<int> markMap;
+        std::set<int> markMap,marked;
         void compile_function(node * );
 
         void compile_resetNode();
